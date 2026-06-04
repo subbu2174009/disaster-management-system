@@ -394,12 +394,21 @@ function renderBatches() {
             </button>
         `;
 
-        if (b.deliveryStatus === 'APPROVED' || b.deliveryStatus === 'SHIPPED') {
-            actionButtons += `
-                <button class="btn btn-primary btn-sm" style="display:inline-block; margin-right:4px; background-color:var(--color-warning); border-color:var(--color-warning);" onclick="triggerInvoiceGeneration(${b.id}, '${b.cargoBatchId}')">
-                    <i class="fa-solid fa-file-invoice-dollar"></i> Generate Invoice
-                </button>
-            `;
+        if (b.deliveryStatus !== 'PENDING' && b.deliveryStatus !== 'REJECTED') {
+            const associatedInvoice = invoices.find(inv => inv.reliefBatch && inv.reliefBatch.id === b.id);
+            if (associatedInvoice) {
+                actionButtons += `
+                    <button class="btn btn-sm" style="display:inline-block; margin-right:4px; background-color:var(--color-success); border-color:var(--color-success); color: white;" onclick="downloadInvoice(${associatedInvoice.id}, '${associatedInvoice.invoiceId}')">
+                        <i class="fa-solid fa-file-arrow-down"></i> Invoice
+                    </button>
+                `;
+            } else {
+                actionButtons += `
+                    <button class="btn btn-primary btn-sm" style="display:inline-block; margin-right:4px; background-color:var(--color-warning); border-color:var(--color-warning);" onclick="triggerInvoiceGeneration(${b.id}, '${b.cargoBatchId}')">
+                        <i class="fa-solid fa-file-invoice-dollar"></i> Generate Invoice
+                    </button>
+                `;
+            }
         }
 
         const tr = document.createElement('tr');
@@ -465,7 +474,7 @@ function renderFinance() {
                 <td><strong>${inv.invoiceId}</strong></td>
                 <td>${inv.associatedTargetZoneId}</td>
                 <td><strong>$${inv.aggregatedOperationalCost.toFixed(2)}</strong></td>
-                <td><span class="badge ${statusClass}">${inv.approvalSignature}</span></td>
+                <td><span class="badge ${statusClass}">${inv.approvalSignature === 'CLEARED' ? 'ACCEPTED' : inv.approvalSignature}</span></td>
                 <td>${actionHtml}</td>
             `;
             invBody.appendChild(tr);
@@ -617,6 +626,16 @@ function openBatchItemsModal(batchId, code, status) {
     document.getElementById('manifest-batch-code').innerText = code;
     document.getElementById('manifest-batch-status').innerText = 'Status: ' + status;
 
+    // Lock manifest addition form if the status is not PENDING
+    const addForm = document.getElementById('manifest-add-form');
+    if (addForm) {
+        if (status !== 'PENDING') {
+            addForm.style.display = 'none';
+        } else {
+            addForm.style.display = 'block';
+        }
+    }
+
     // Load items in popup table
     loadManifestTable(batchId);
 }
@@ -631,18 +650,28 @@ function loadManifestTable(batchId) {
         return;
     }
 
+    const isEditable = (batch.deliveryStatus === 'PENDING');
+
     batch.items.forEach(item => {
         const tr = document.createElement('tr');
+        
+        let actionColumn = '';
+        if (isEditable) {
+            actionColumn = `
+                <button class="btn btn-danger btn-sm" style="padding:2px 6px; font-size:0.7rem;" onclick="deleteManifestItem(${batchId}, ${item.id})">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            `;
+        } else {
+            actionColumn = `<span style="font-size:0.8rem; color:var(--text-muted); font-style:italic;">Locked</span>`;
+        }
+
         tr.innerHTML = `
             <td><strong>${item.stockKeepingUnitSKU}</strong></td>
             <td>${item.itemCategoryLabel}</td>
             <td>$${item.unitCostValuation.toFixed(2)}</td>
             <td>${item.currentStockLevel}</td>
-            <td>
-                <button class="btn btn-danger btn-sm" style="padding:2px 6px; font-size:0.7rem;" onclick="deleteManifestItem(${batchId}, ${item.id})">
-                    <i class="fa-solid fa-trash"></i>
-                </button>
-            </td>
+            <td>${actionColumn}</td>
         `;
         body.appendChild(tr);
     });
@@ -883,12 +912,64 @@ async function triggerInvoiceGeneration(batchId, code) {
         const res = await fetch(`${BATCHES_API}/${batchId}/invoice?zoneId=${zone}`, {
             method: 'POST'
         });
-        if (!res.ok) throw new Error();
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to generate allocation invoice.');
+        }
         await fetchData();
         alert('Allocation invoice generated and logged in Financial tab!');
     } catch (err) {
-        alert('Failed to generate allocation invoice.');
+        alert(err.message || 'Failed to generate allocation invoice.');
     }
+}
+
+// Download Invoice formatted text helper
+function downloadInvoice(invoiceId, invoiceCode) {
+    const inv = invoices.find(i => i.id === invoiceId);
+    if (!inv) {
+        alert('Invoice details not found.');
+        return;
+    }
+
+    const batchCode = inv.reliefBatch ? inv.reliefBatch.cargoBatchId : 'N/A';
+    const sourceNode = inv.reliefBatch ? inv.reliefBatch.logisticsSourceNode : 'N/A';
+    
+    let itemsText = '';
+    if (inv.reliefBatch && inv.reliefBatch.items) {
+        inv.reliefBatch.items.forEach(item => {
+            itemsText += `- SKU: ${item.stockKeepingUnitSKU} | Category: ${item.itemCategoryLabel} | Qty: ${item.currentStockLevel} | Cost: $${item.unitCostValuation.toFixed(2)}\n`;
+        });
+    } else {
+        itemsText = 'No items logged.\n';
+    }
+
+    const invoiceContent = `=====================================================
+DISASTER RELIEF MANAGEMENT SYSTEM - INVOICE
+=====================================================
+Invoice Reference : ${inv.invoiceId}
+Cargo Batch Code  : ${batchCode}
+Source Node       : ${sourceNode}
+Target Zone       : ${inv.associatedTargetZoneId}
+Approval State    : ${inv.approvalSignature === 'CLEARED' ? 'ACCEPTED' : inv.approvalSignature}
+Settled Payment   : ${inv.donationPayment ? 'PAID / SETTLED via Payment ID: ' + inv.donationPayment.transactionalPaymentId + ' (' + inv.donationPayment.routingChannelApproach + ')' : 'UNPAID / PENDING HANDSHAKE'}
+-----------------------------------------------------
+ITEMS BUNDLED IN CARGO MANIFEST:
+${itemsText}
+-----------------------------------------------------
+AGGREGATED OPERATIONAL COST: $${inv.aggregatedOperationalCost.toFixed(2)}
+=====================================================
+Generated on local system: ${new Date().toLocaleString()}
+`;
+
+    const blob = new Blob([invoiceContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice-${invoiceCode}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 // Resolve an incident

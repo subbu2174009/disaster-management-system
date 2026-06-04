@@ -53,7 +53,7 @@ public class LogisticsController {
         return reliefBatchRepository.findById(id)
                 .map(batch -> {
                     batch.setDeliveryStatus(status);
-                    if ("SHIPPED".equalsIgnoreCase(status) || "APPROVED".equalsIgnoreCase(status)) {
+                    if ("SHIPPED".equalsIgnoreCase(status)) {
                         batch.dispatchBatch();
                     }
                     return ResponseEntity.ok(reliefBatchRepository.save(batch));
@@ -104,10 +104,19 @@ public class LogisticsController {
         if (batchOpt.isEmpty()) return ResponseEntity.notFound().build();
 
         ReliefBatch batch = batchOpt.get();
+
+        // Check if an invoice already exists for this batch to prevent OneToOne unique constraint violation
+        List<AllocationInvoice> allInvoices = allocationInvoiceRepository.findAll();
+        for (AllocationInvoice inv : allInvoices) {
+            if (inv.getReliefBatch() != null && inv.getReliefBatch().getId().equals(id)) {
+                return ResponseEntity.badRequest().body("An allocation invoice already exists for this cargo batch: " + inv.getInvoiceId());
+            }
+        }
+
         double totalCost = batch.calculateTotalCost();
 
         AllocationInvoice invoice = AllocationInvoice.builder()
-                .invoiceId("INV-" + batch.getCargoBatchId() + "-" + System.currentTimeMillis() % 1000)
+                .invoiceId("INV-" + batch.getCargoBatchId() + "-" + (System.currentTimeMillis() % 1000))
                 .associatedTargetZoneId(zoneId)
                 .aggregatedOperationalCost(totalCost)
                 .approvalSignature("PENDING")
