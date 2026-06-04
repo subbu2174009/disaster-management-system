@@ -238,6 +238,21 @@
 
                         <!-- TAB: Finance & Settlement Ledger -->
                         <div class="tab-content" id="tab-finance">
+                            <!-- Finance Stats Panel -->
+                            <div class="finance-stats-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div class="stat-card glass" style="border-left: 4px solid var(--color-success); box-shadow: 0 0 10px rgba(0, 255, 136, 0.1); padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03);">
+                                    <div class="stat-label" style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Total Donations Received</div>
+                                    <div class="stat-value" id="fin-total-donations" style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--color-success); text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);">$0.00</div>
+                                </div>
+                                <div class="stat-card glass" style="border-left: 4px solid var(--color-warning); box-shadow: 0 0 10px rgba(255, 170, 0, 0.1); padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03);">
+                                    <div class="stat-label" style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Total Costs Settled</div>
+                                    <div class="stat-value" id="fin-total-spent" style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--color-warning); text-shadow: 0 0 8px rgba(255, 170, 0, 0.4);">$0.00</div>
+                                </div>
+                                <div class="stat-card glass" style="border-left: 4px solid var(--color-info); box-shadow: 0 0 10px rgba(0, 204, 255, 0.1); padding: 12px; border-radius: 8px; background: rgba(255,255,255,0.03);">
+                                    <div class="stat-label" style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Net Funding Balance</div>
+                                    <div class="stat-value" id="fin-net-balance" style="font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--color-info); text-shadow: 0 0 8px rgba(0, 204, 255, 0.4);">$0.00</div>
+                                </div>
+                            </div>
                             <div class="finance-layout">
                                 <div class="finance-section">
                                     <div class="table-actions">

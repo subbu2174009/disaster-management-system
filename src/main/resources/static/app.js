@@ -426,6 +426,29 @@ function renderBatches() {
 
 // Render Financial Ledger & Donations
 function renderFinance() {
+    // Calculate totals for stats panel
+    let totalAvailable = 0;
+    donations.forEach(don => {
+        totalAvailable += don.clearFundsAmount;
+    });
+
+    let totalSpent = 0;
+    invoices.forEach(inv => {
+        if (inv.approvalSignature === 'CLEARED') {
+            totalSpent += inv.aggregatedOperationalCost;
+        }
+    });
+
+    const totalReceived = totalAvailable + totalSpent;
+
+    const totalDonationsElem = document.getElementById('fin-total-donations');
+    const totalSpentElem = document.getElementById('fin-total-spent');
+    const netBalanceElem = document.getElementById('fin-net-balance');
+
+    if (totalDonationsElem) totalDonationsElem.innerText = '$' + totalReceived.toFixed(2);
+    if (totalSpentElem) totalSpentElem.innerText = '$' + totalSpent.toFixed(2);
+    if (netBalanceElem) netBalanceElem.innerText = '$' + totalAvailable.toFixed(2);
+
     // 1. Render Donations table
     const donBody = document.getElementById('donations-table-body');
     donBody.innerHTML = '';
@@ -925,7 +948,7 @@ async function triggerInvoiceGeneration(batchId, code) {
 
 // Download Invoice formatted text helper
 function downloadInvoice(invoiceId, invoiceCode) {
-    const inv = invoices.find(i => i.id === invoiceId);
+    const inv = invoices.find(i => i.id == invoiceId);
     if (!inv) {
         alert('Invoice details not found.');
         return;

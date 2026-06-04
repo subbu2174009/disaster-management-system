@@ -67,6 +67,10 @@ public class FinanceController {
                           + invoice.getAggregatedOperationalCost() + ") of Invoice " + invoice.getInvoiceId());
         }
 
+        // Deduct the operational cost from the donation payment clear funds
+        donation.setClearFundsAmount(donation.getClearFundsAmount() - invoice.getAggregatedOperationalCost());
+        donationPaymentRepository.save(donation);
+
         invoice.setApprovalSignature("CLEARED");
         invoice.setDonationPayment(donation);
         
