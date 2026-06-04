@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrisisControl | Disaster Management Command Center</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet.js CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Live Ticker Bar -->
+        <div class="ticker-wrap">
+            <div class="ticker-label"><i class="fa-solid fa-circle-exclamation blink"></i> SYSTEM BROADCAST:</div>
+            <div class="ticker">
+                <div class="ticker-item">Central Park wildfire emergency responders deployed. Evacuation zones active.</div>
+                <div class="ticker-item">High storm surge alert in lower Manhattan. Residents advised to move to higher ground.</div>
+                <div class="ticker-item">Brooklyn Substation power grid repair underway. Expected completion by 02:00 AM.</div>
+            </div>
+        </div>
+
+        <!-- Navigation Header -->
+        <header class="app-header">
+            <div class="logo">
+                <i class="fa-solid fa-shield-halved logo-icon"></i>
+                <div class="logo-text">
+                    <h1>CrisisControl</h1>
+                    <span>Disaster Management Portal</span>
+                </div>
+            </div>
+            <div class="header-stats">
+                <div class="stat-badge danger">
+                    <span class="dot"></span>
+                    <span class="label">ACTIVE CRISES:</span>
+                    <strong id="header-active-count">0</strong>
+                </div>
+                <div class="stat-badge success">
+                    <span class="dot"></span>
+                    <span class="label">SHELVES AVAILABLE:</span>
+                    <strong id="header-shelter-beds">0 BEDS</strong>
+                </div>
+            </div>
+            <div class="time-widget">
+                <i class="fa-regular fa-clock"></i>
+                <span id="live-clock">00:00:00 UTC</span>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Workspace -->
+        <div class="dashboard-grid">
+            
+            <!-- Left Panel: Incidents List & Controls -->
+            <aside class="panel left-panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-triangle-exclamation text-danger"></i> Active Incident Log</h2>
+                    <span class="badge" id="incident-count-badge">0</span>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="openReportModal()">
+                        <i class="fa-solid fa-plus"></i> Report Incident
+                    </button>
+                    <button class="btn btn-danger" onclick="triggerSOS()">
+                        <i class="fa-solid fa-circle-info"></i> Rapid SOS Alert
+                    </button>
+                </div>
+
+                <div class="search-filter-box">
+                    <div class="search-wrapper">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="incident-search" placeholder="Search incidents..." onkeyup="filterIncidents()">
+                    </div>
+                </div>
+
+                <!-- Live Log Feed -->
+                <div class="list-container" id="incidents-feed">
+                    <div class="loading-state">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading live incident feed...
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Center Panel: Interactive Map & Detailed Tabs Sheet -->
+            <main class="center-workspace">
+                <div class="map-section">
+                    <div id="map-container"></div>
+                    <div class="map-overlay-instructions">
+                        <p><i class="fa-solid fa-circle-info"></i> Click on the map to autofill coordinates for new incidents.</p>
+                    </div>
+                </div>
+
+                <!-- Tabs Area (Bottom Sheet) -->
+                <div class="bottom-sheet">
+                    <div class="tab-headers">
+                        <button class="tab-btn active" onclick="switchTab('tab-victims')">
+                            <i class="fa-solid fa-people-roof"></i> Evacuees & Victims
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('tab-logistics')">
+                            <i class="fa-solid fa-truck-ramp-box"></i> Relief Cargo Batches
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('tab-finance')">
+                            <i class="fa-solid fa-wallet"></i> Financial Ledger
+                        </button>
+                    </div>
+
+                    <div class="tab-content-container">
+                        
+                        <!-- TAB: Victims & Housed Allocations -->
+                        <div class="tab-content active" id="tab-victims">
+                            <div class="table-actions">
+                                <h3>Housed Evacuees Directory</h3>
+                                <button class="btn btn-primary btn-sm" onclick="openVictimModal()">
+                                    <i class="fa-solid fa-user-plus"></i> Intake Victim
+                                </button>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Age/Gender</th>
+                                            <th>Triage Level</th>
+                                            <th>Housed Shelter</th>
+                                            <th>Room Allocated</th>
+                                            <th>Emergency Needs</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="victims-table-body">
+                                        <tr><td colspan="7" class="loading-state">Loading evacuees list...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Logistics Relief Batches (Incident Commander Controls) -->
+                        <div class="tab-content" id="tab-logistics">
+                            <div class="table-actions">
+                                <h3>Emergency Relief Cargo Batches</h3>
+                                <button class="btn btn-primary btn-sm" onclick="openBatchModal()">
+                                    <i class="fa-solid fa-folder-plus"></i> Pull Request Batch
+                                </button>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Batch Code</th>
+                                            <th>Logistics Node</th>
+                                            <th>Cargo Status</th>
+                                            <th>Supply Bundles</th>
+                                            <th>Total Valuation</th>
+                                            <th>Incident Commander Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="batches-table-body">
+                                        <tr><td colspan="6" class="loading-state">Loading relief cargo list...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Finance & Settlement Ledger -->
+                        <div class="tab-content" id="tab-finance">
+                            <div class="finance-layout">
+                                <div class="finance-section">
+                                    <div class="table-actions">
+                                        <h3>Donations Ledger</h3>
+                                        <button class="btn btn-primary btn-sm" onclick="openDonationModal()">
+                                            <i class="fa-solid fa-hand-holding-dollar"></i> Log Donation
+                                        </button>
+                                    </div>
+                                    <div class="table-wrapper mini-table">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Trans. ID</th>
+                                                    <th>Fund Amount</th>
+                                                    <th>Payment Type</th>
+                                                    <th>Date/Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="donations-table-body">
+                                                <tr><td colspan="4" class="loading-state">Loading donations ledger...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="finance-section">
+                                    <div class="table-actions">
+                                        <h3>Allocation Invoices</h3>
+                                    </div>
+                                    <div class="table-wrapper mini-table">
+                                        <table class="data-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Invoice ID</th>
+                                                    <th>Zone</th>
+                                                    <th>Cost ($)</th>
+                                                    <th>Status</th>
+                                                    <th>Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="invoices-table-body">
+                                                <tr><td colspan="5" class="loading-state">Loading allocation invoices...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <!-- Right Panel: Shelters & Metrics -->
+            <aside class="panel right-panel">
+                <div class="panel-header">
+                    <h2><i class="fa-solid fa-house-chimney-medical text-success"></i> Emergency Shelters</h2>
+                    <span class="badge success-badge" id="shelter-count-badge">0</span>
+                </div>
+                
+                <!-- Quick Stats Info Cards -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value" id="metric-evacuated">0</div>
+                        <div class="metric-label">Citizens Housed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value" id="metric-occupancy-rate">0%</div>
+                        <div class="metric-label">Shelter Load</div>
+                    </div>
+                </div>
+
+                <div class="list-container" id="shelters-feed">
+                    <div class="loading-state">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Loading shelter status...
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Modal: Report Incident -->
+    <div class="modal-backdrop" id="report-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-bullhorn"></i> File Disaster Incident Report</h3>
+                <button class="close-btn" onclick="closeReportModal()">&times;</button>
+            </div>
+            <form id="incident-form" onsubmit="submitIncidentForm(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="form-title">Incident Title *</label>
+                        <input type="text" id="form-title" required placeholder="e.g. Flooded intersection at 5th Ave">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="form-type">Disaster Type *</label>
+                            <select id="form-type" required>
+                                <option value="FLOOD">Flood</option>
+                                <option value="EARTHQUAKE">Earthquake</option>
+                                <option value="WILDFIRE">Wildfire</option>
+                                <option value="HURRICANE">Hurricane</option>
+                                <option value="OTHER">Other Emergency</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-severity">Severity Scale (1-10) *</label>
+                            <select id="form-severity" required>
+                                <option value="3">3 - Low Severity</option>
+                                <option value="5">5 - Medium Severity</option>
+                                <option value="8">8 - High Severity</option>
+                                <option value="10">10 - Critical Disaster</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="form-lat">Latitude *</label>
+                            <input type="number" step="any" id="form-lat" required readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="form-lng">Longitude *</label>
+                            <input type="number" step="any" id="form-lng" required readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="form-desc">Detailed Description *</label>
+                        <textarea id="form-desc" rows="4" required placeholder="Provide status of road blockage, injuries, or rescue assistance required."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeReportModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit Report</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Intake Victim -->
+    <div class="modal-backdrop" id="victim-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-plus"></i> Intaking Evacuee Victim</h3>
+                <button class="close-btn" onclick="closeVictimModal()">&times;</button>
+            </div>
+            <form id="victim-form" onsubmit="submitVictimForm(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="vic-name">Victim Name *</label>
+                        <input type="text" id="vic-name" required placeholder="Full Name">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vic-age">Age *</label>
+                            <input type="number" id="vic-age" required min="1" max="120">
+                        </div>
+                        <div class="form-group">
+                            <label for="vic-gender">Gender *</label>
+                            <select id="vic-gender" required>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                                <option value="O">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vic-phone">Phone Number</label>
+                            <input type="text" id="vic-phone" placeholder="Contact number">
+                        </div>
+                        <div class="form-group">
+                            <label for="vic-triage">Initial Triage Tier *</label>
+                            <select id="vic-triage" required>
+                                <option value="Tier 3 - Stable">Tier 3 - Mild/Stable</option>
+                                <option value="Tier 2 - Urgent Care">Tier 2 - Urgent Care</option>
+                                <option value="Tier 1 - Critical">Tier 1 - Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="vic-needs">Specialized Medical/Dietary Needs</label>
+                        <input type="text" id="vic-needs" placeholder="e.g. Insulin, wheelchair access">
+                    </div>
+                    <div class="form-group">
+                        <label for="vic-room">Select Housed Facility Room (Vacancy Available) *</label>
+                        <select id="vic-room" required>
+                            <option value="">-- Select Vacant Room --</option>
+                        </select>
+                    </div>
+                    <div class="form-group check-group">
+                        <label><input type="checkbox" id="vic-alert"> Raise Critical Medical Alert Flag (Immediate Tier 1)</label>
+                    </div>
+                    <p class="form-help-text text-warning"><i class="fa-solid fa-hotel"></i> Select an available room to house the evacuee. The corresponding shelter is assigned based on the room selected.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeVictimModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Process Intake</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: View Medical Chart & Add Logs -->
+    <div class="modal-backdrop" id="med-chart-modal">
+        <div class="modal" style="width: 550px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-notes-medical"></i> Medical Chart & Clinical Log</h3>
+                <button class="close-btn" onclick="closeMedModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="patient-summary">
+                    <h4 id="med-patient-name"> Rahul (Blood: O+)</h4>
+                    <p id="med-patient-needs">Special Needs: none</p>
+                </div>
+                <div class="chart-ledger-container">
+                    <h5>Longitudinal Medical History</h5>
+                    <div class="chart-log-box" id="med-history-log">
+                        <!-- Entries populated here -->
+                    </div>
+                </div>
+                
+                <hr style="border: 1px solid var(--border-color); margin: 10px 0;"/>
+                
+                <form id="med-entry-form" onsubmit="submitMedEntry(event)">
+                    <input type="hidden" id="med-victim-id">
+                    <h5>Add New Chart Entry</h5>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="med-type">Entry Type *</label>
+                            <select id="med-type" required>
+                                <option value="DIAGNOSIS">Diagnosis</option>
+                                <option value="PRESCRIPTION">Prescription (Rx)</option>
+                                <option value="TREATMENT">Treatment</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label for="med-details">Log Details *</label>
+                            <input type="text" id="med-details" required placeholder="e.g. ICD-RESP-02: Respiratory distress">
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="width: auto; padding: 6px 16px; font-size: 0.8rem;">
+                            Append Entry
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Log Donation -->
+    <div class="modal-backdrop" id="donation-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-hand-holding-dollar"></i> Record Donated Funds</h3>
+                <button class="close-btn" onclick="closeDonationModal()">&times;</button>
+            </div>
+            <form id="donation-form" onsubmit="submitDonationForm(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="don-amount">Clear Funds Amount ($) *</label>
+                        <input type="number" step="0.01" id="don-amount" required min="1" placeholder="e.g. 5000.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="don-channel">Routing Channel *</label>
+                        <select id="don-channel" required>
+                            <option value="SWIFT-WIRE">Swift Wire Transfer</option>
+                            <option value="BANK-ACH">Bank ACH</option>
+                            <option value="CREDIT-CARD">Credit Card Gateway</option>
+                            <option value="CASH">Cash Donation</option>
+                        </select>
+                    </div>
+                    <div class="form-group check-group">
+                        <label><input type="checkbox" id="don-anonymous"> Keep Donor Identity Anonymous</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeDonationModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Process Donation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Pull Request Relief Batch -->
+    <div class="modal-backdrop" id="batch-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-truck-ramp-box"></i> Pull-Request Relief Cargo</h3>
+                <button class="close-btn" onclick="closeBatchModal()">&times;</button>
+            </div>
+            <form id="batch-form" onsubmit="submitBatchForm(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="bat-code">Cargo Batch Code *</label>
+                        <input type="text" id="bat-code" required placeholder="e.g. BATCH-GAMMA">
+                    </div>
+                    <div class="form-group">
+                        <label for="bat-node">Logistics Source Node *</label>
+                        <input type="text" id="bat-node" required placeholder="e.g. Central Warehouse">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeBatchModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Request Cargo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Manage Batch Items (Accept / Modify Items) -->
+    <div class="modal-backdrop" id="batch-items-modal">
+        <div class="modal" style="width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-boxes-stacked"></i> Batch Cargo Manifest</h3>
+                <button class="close-btn" onclick="closeBatchItemsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="manifest-header">
+                    <h4 id="manifest-batch-code">BATCH-ALPHA</h4>
+                    <p id="manifest-batch-status">Status: PENDING</p>
+                </div>
+                <div class="manifest-items-list">
+                    <h5>Supply Items Bundled</h5>
+                    <div class="table-wrapper" style="max-height: 180px;">
+                        <table class="data-table mini">
+                            <thead>
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Category</th>
+                                    <th>Unit Cost</th>
+                                    <th>Qty</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="manifest-items-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <hr style="border:1px solid var(--border-color); margin: 12px 0;"/>
+
+                <form id="manifest-add-form" onsubmit="submitManifestItem(event)">
+                    <input type="hidden" id="manifest-batch-id">
+                    <h5>Add/Modify Supply Bundle</h5>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-sku">SKU Code *</label>
+                            <input type="text" id="item-sku" required placeholder="SKU-WATER-1L">
+                        </div>
+                        <div class="form-group">
+                            <label for="item-cat">Category *</label>
+                            <input type="text" id="item-cat" required placeholder="Water">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="item-cost">Unit Cost ($) *</label>
+                            <input type="number" step="0.01" id="item-cost" required placeholder="12.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="item-qty">Quantity *</label>
+                            <input type="number" id="item-qty" required placeholder="500">
+                        </div>
+                    </div>
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                        <button type="submit" id="manifest-add-btn" class="btn btn-primary" style="width: auto; padding: 6px 16px; font-size: 0.8rem;">
+                            Bundle Item
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Settle Invoice Handshake -->
+    <div class="modal-backdrop" id="settle-invoice-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-handshake-simple"></i> Settle Allocation Invoice</h3>
+                <button class="close-btn" onclick="closeSettleModal()">&times;</button>
+            </div>
+            <form id="settle-form" onsubmit="submitSettleForm(event)">
+                <input type="hidden" id="settle-invoice-id">
+                <div class="modal-body">
+                    <div class="settle-summary">
+                        <h4 id="settle-invoice-code">INV-BATCH-BETA</h4>
+                        <p id="settle-invoice-cost">Operational Cost: $1250.00</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="settle-donation-select">Select Funding Donation Transaction *</label>
+                        <select id="settle-donation-select" required>
+                            <!-- Available donations populated here -->
+                        </select>
+                    </div>
+                    <p class="form-help-text text-warning"><i class="fa-solid fa-scale-balanced"></i> Financial Settlement Handshake: The selected donation transaction must contain funds equal to or exceeding the total operational cost of the invoice to settle.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeSettleModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Process Settlement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Leaflet.js Map script -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
