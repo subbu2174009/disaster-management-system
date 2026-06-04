@@ -159,7 +159,8 @@ function plotMapMarkers() {
 
     // Plot Crisis Incidents
     incidents.forEach(incident => {
-        if (!incident.isActive) return;
+        const isIncidentActive = (incident.isActive !== undefined ? incident.isActive : incident.active);
+        if (!isIncidentActive) return;
 
         let colorClass = 'info';
         let pulseRing = '';
@@ -268,7 +269,7 @@ function renderIncidents() {
             <div class="item-footer">
                 <span class="item-meta"><i class="fa-regular fa-clock"></i> Reported: ${reportedTime}</span>
                 <span class="item-meta" style="text-transform: uppercase;">
-                    <i class="fa-solid fa-circle-dot" style="font-size:0.5rem; color:${incident.isActive ? 'var(--color-danger)' : 'var(--color-success)'}"></i> ${incident.isActive ? 'ACTIVE' : 'RESOLVED'}
+                    <i class="fa-solid fa-circle-dot" style="font-size:0.5rem; color:${(incident.isActive !== undefined ? incident.isActive : incident.active) ? 'var(--color-danger)' : 'var(--color-success)'}"></i> ${(incident.isActive !== undefined ? incident.isActive : incident.active) ? 'ACTIVE' : 'RESOLVED'}
                 </span>
             </div>
         `;
@@ -1094,7 +1095,8 @@ function openDeployModal() {
     const incSelect = document.getElementById('dep-incident');
     incSelect.innerHTML = '<option value="">-- Choose Incident --</option>';
     incidents.forEach(inc => {
-        if (inc.isActive) {
+        const isIncidentActive = (inc.isActive !== undefined ? inc.isActive : inc.active);
+        if (isIncidentActive) {
             incSelect.innerHTML += `<option value="${inc.id}">${inc.title} (${inc.hazardType} - Scale ${inc.severityScale})</option>`;
         }
     });

@@ -19,6 +19,8 @@ public class DisasterIncident {
     private String incidentId;
     private String hazardType;
     private int severityScale;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isActive")
     private boolean isActive;
 
     // Retained for Leaflet map mapping and details feed
