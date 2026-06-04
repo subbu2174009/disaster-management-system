@@ -28,6 +28,11 @@ public class DisasterIncident {
     private Double longitude;
     private LocalDateTime reportedAt;
 
+    @ManyToOne
+    @JoinColumn(name = "affected_zone_id")
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties("registeredIncidents")
+    private AffectedZone affectedZone;
+
     public void triggerAlert() {
         this.isActive = true;
     }

@@ -1047,5 +1047,96 @@ body {
     }
 }
 
+/* Premium Glassmorphic Glow Cards Grid */
+.zones-glow-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 15px;
+}
+.glow-card {
+    background: rgba(17, 24, 39, 0.65);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 16px;
+    text-align: center;
+    backdrop-filter: blur(15px);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.glow-card:hover {
+    transform: translateY(-2px);
+}
+.glow-card .val {
+    font-family: var(--font-outfit);
+    font-size: 2.2rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 4px;
+}
+.glow-card .lbl {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+}
+
+/* Neon Glow Specific Variances */
+.glow-card.casualties {
+    border-color: rgba(239, 68, 68, 0.4);
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);
+}
+.glow-card.casualties .val {
+    color: #ef4444;
+    text-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.glow-card.damage {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);
+}
+.glow-card.damage .val {
+    color: #f59e0b;
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.5);
+}
+
+.glow-card.lives {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.08);
+}
+.glow-card.lives .val {
+    color: #f3f4f6;
+    text-shadow: 0 0 12px rgba(243, 244, 246, 0.4);
+}
+
+.glow-card.evacuations {
+    border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+}
+.glow-card.evacuations .val {
+    color: #3b82f6;
+    text-shadow: 0 0 12px rgba(59, 130, 246, 0.5);
+}
+
+.glow-card.risk {
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.15);
+}
+.glow-card.risk .val {
+    color: #10b981;
+    text-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+
+@media (max-width: 1300px) {
+    .zones-glow-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+@media (max-width: 600px) {
+    .zones-glow-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
 
 

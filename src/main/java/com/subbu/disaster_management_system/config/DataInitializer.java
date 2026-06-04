@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.UUID;
+import java.util.List;
 
 @Component
 public class DataInitializer implements CommandLineRunner {
@@ -41,9 +41,48 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired
     private AllocationInvoiceRepository allocationInvoiceRepository;
 
+    @Autowired
+    private FieldResponderRepository responderRepository;
+
+    @Autowired
+    private EmergencyAssignmentRepository assignmentRepository;
+
+    @Autowired
+    private AffectedZoneRepository zoneRepository;
+
     @Override
     public void run(String... args) throws Exception {
         
+        // 0. Seed Affected Zones
+        AffectedZone zNorth = null;
+        AffectedZone zEast = null;
+        if (zoneRepository.count() == 0) {
+            zNorth = AffectedZone.builder()
+                    .zoneId("Z-NORTH")
+                    .quadrantGeocode("40.7060,-74.0080")
+                    .casualtyCount(42)
+                    .housesDamaged(15)
+                    .livesLost(3)
+                    .evacuationRequestCount(12)
+                    .infrastructureRiskScale(8)
+                    .evacuationRequired(true)
+                    .build();
+            zEast = AffectedZone.builder()
+                    .zoneId("Z-EAST")
+                    .quadrantGeocode("40.6782,-73.9442")
+                    .casualtyCount(18)
+                    .housesDamaged(4)
+                    .livesLost(0)
+                    .evacuationRequestCount(2)
+                    .infrastructureRiskScale(5)
+                    .evacuationRequired(false)
+                    .build();
+            zoneRepository.saveAll(Arrays.asList(zNorth, zEast));
+        } else {
+            zNorth = zoneRepository.findByZoneId("Z-NORTH").orElse(null);
+            zEast = zoneRepository.findByZoneId("Z-EAST").orElse(null);
+        }
+
         // 1. Incidents
         if (incidentRepository.count() == 0) {
             DisasterIncident i1 = DisasterIncident.builder()
@@ -56,6 +95,7 @@ public class DataInitializer implements CommandLineRunner {
                     .longitude(-74.0080)
                     .description("Heavy storm surge has breached the seawall. Lower level subway lines flooding. Evacuations in progress.")
                     .reportedAt(LocalDateTime.now().minusHours(3))
+                    .affectedZone(zNorth)
                     .build();
 
             DisasterIncident i2 = DisasterIncident.builder()
@@ -68,6 +108,7 @@ public class DataInitializer implements CommandLineRunner {
                     .longitude(-73.9442)
                     .description("Substation failure caused local blackout. Fire departments responding. Grid recovery expected in 4 hours.")
                     .reportedAt(LocalDateTime.now().minusMinutes(45))
+                    .affectedZone(zEast)
                     .build();
 
             DisasterIncident i3 = DisasterIncident.builder()
@@ -80,6 +121,7 @@ public class DataInitializer implements CommandLineRunner {
                     .longitude(-73.9683)
                     .description("Dry, windy conditions causing fire to spread rapidly in the Ramble. Citizens advised to avoid the park entirely.")
                     .reportedAt(LocalDateTime.now().minusHours(1))
+                    .affectedZone(zNorth)
                     .build();
 
             DisasterIncident i4 = DisasterIncident.builder()
@@ -92,6 +134,7 @@ public class DataInitializer implements CommandLineRunner {
                     .longitude(-73.7949)
                     .description("Magnitude 3.2 tremor felt. Structural damage checks complete. No casualties or critical damage reported.")
                     .reportedAt(LocalDateTime.now().minusDays(1))
+                    .affectedZone(zEast)
                     .build();
 
             incidentRepository.saveAll(Arrays.asList(i1, i2, i3, i4));
@@ -214,7 +257,70 @@ public class DataInitializer implements CommandLineRunner {
             medicalRecordRepository.saveAll(Arrays.asList(m1, m2));
         }
 
-        // 5. Logistics: Relief Batches & Supply Items
+        // 4.5. Seed Field Responders
+        FieldResponder fr1 = null;
+        FieldResponder fr2 = null;
+        if (responderRepository.count() == 0) {
+            fr1 = FieldResponder.builder()
+                    .personId("P-FR-SANTHOSH")
+                    .name("Santhosh")
+                    .age(31)
+                    .gender("M")
+                    .phoneNumber("99991111")
+                    .empId("E-FR-1")
+                    .salary(5500.0)
+                    .operationalStatus("ACTIVE")
+                    .tacticalSpecialty("Water Rescue")
+                    .certificationLevel(3)
+                    .currentGpsCoordinates("40.7060,-74.0080")
+                    .build();
+
+            fr2 = FieldResponder.builder()
+                    .personId("P-FR-SUBHASH")
+                    .name("Subhash")
+                    .age(28)
+                    .gender("M")
+                    .phoneNumber("99992222")
+                    .empId("E-FR-2")
+                    .salary(4800.0)
+                    .operationalStatus("STANDBY")
+                    .tacticalSpecialty("Triage Medicine")
+                    .certificationLevel(4)
+                    .currentGpsCoordinates("40.6782,-73.9442")
+                    .build();
+
+            responderRepository.saveAll(Arrays.asList(fr1, fr2));
+        } else {
+            List<FieldResponder> list = responderRepository.findAll();
+            if (list.size() >= 2) {
+                fr1 = list.get(0);
+                fr2 = list.get(1);
+            }
+        }
+
+        // 4.6. Seed Emergency Assignments
+        if (assignmentRepository.count() == 0 && fr1 != null) {
+            DisasterIncident activeIncident = incidentRepository.findAll().stream()
+                    .filter(DisasterIncident::isActive)
+                    .findFirst()
+                    .orElse(null);
+            
+            if (activeIncident != null) {
+                EmergencyAssignment asg = EmergencyAssignment.builder()
+                        .assignmentId("ASG-DEPL-ALPHA")
+                        .operationalShift("Day Shift")
+                        .activationTimestamp(LocalDateTime.now().minusHours(2))
+                        .isCompleted(false)
+                        .fieldResponder(fr1)
+                        .disasterIncident(activeIncident)
+                        .fieldIncidentNotes("[]")
+                        .build();
+                asg.logFieldIncidentNotes("First aid kits deployed. Evacuations in block 4 completed.");
+                assignmentRepository.save(asg);
+            }
+        }
+
+        // 5. Logistics: Relief Cargo Batches & Supply Items
         if (reliefBatchRepository.count() == 0) {
             
             // Batch 1 (Pending pull-request)

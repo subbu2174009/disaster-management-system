@@ -103,6 +103,12 @@
                         <button class="tab-btn active" onclick="switchTab('tab-victims')">
                             <i class="fa-solid fa-people-roof"></i> Evacuees & Victims
                         </button>
+                        <button class="tab-btn" onclick="switchTab('tab-deployments')">
+                            <i class="fa-solid fa-user-shield"></i> Responder Deployments
+                        </button>
+                        <button class="tab-btn" onclick="switchTab('tab-zones')">
+                            <i class="fa-solid fa-earth-americas"></i> Affected Zones Hub
+                        </button>
                         <button class="tab-btn" onclick="switchTab('tab-logistics')">
                             <i class="fa-solid fa-truck-ramp-box"></i> Relief Cargo Batches
                         </button>
@@ -136,6 +142,68 @@
                                     </thead>
                                     <tbody id="victims-table-body">
                                         <tr><td colspan="7" class="loading-state">Loading evacuees list...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Responder Deployments -->
+                        <div class="tab-content" id="tab-deployments">
+                            <div class="table-actions">
+                                <h3>Active Field Deployments (Jobs)</h3>
+                                <button class="btn btn-primary btn-sm" onclick="openDeployModal()">
+                                    <i class="fa-solid fa-user-check"></i> Deploy Responder
+                                </button>
+                            </div>
+                            <div class="table-wrapper">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Job ID</th>
+                                            <th>Field Responder</th>
+                                            <th>Tactical Specialty</th>
+                                            <th>Target Incident</th>
+                                            <th>Shift</th>
+                                            <th>Telemetry Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="deployments-table-body">
+                                        <tr><td colspan="7" class="loading-state">Loading active assignments...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: Affected Zones Hub -->
+                        <div class="tab-content" id="tab-zones">
+                            <div class="table-actions">
+                                <h3>Affected Zones Real-Time Operations Hub</h3>
+                            </div>
+                            
+                            <!-- High-Impact Neon Grid -->
+                            <div class="zones-glow-grid" id="zones-glow-container">
+                                <!-- Generated dynamically in app.js -->
+                            </div>
+
+                            <div class="table-wrapper" style="margin-top: 15px;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Zone ID</th>
+                                            <th>Quadrant Geocode</th>
+                                            <th>Evacuation Status</th>
+                                            <th>Casualties</th>
+                                            <th>Houses Damaged</th>
+                                            <th>Lives Lost</th>
+                                            <th>Evacuation Requests</th>
+                                            <th>Risk Scale (1-10)</th>
+                                            <th>Incident Count</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="zones-table-body">
+                                        <tr><td colspan="10" class="loading-state">Loading affected zones...</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -570,6 +638,128 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeSettleModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary">Process Settlement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Deploy Responder Assignment -->
+    <div class="modal-backdrop" id="deploy-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-shield"></i> Deploy Responder to Hazard Zone</h3>
+                <button class="close-btn" onclick="closeDeployModal()">&times;</button>
+            </div>
+            <form id="deploy-form" onsubmit="submitDeploymentForm(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="dep-responder">Select Available Field Responder (Standby) *</label>
+                        <select id="dep-responder" required>
+                            <option value="">-- Choose Responder --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dep-incident">Select Target Active Incident *</label>
+                        <select id="dep-incident" required>
+                            <option value="">-- Choose Incident --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="dep-shift">Operational Shift *</label>
+                        <select id="dep-shift" required>
+                            <option value="Day Shift">Day Shift</option>
+                            <option value="Night Shift">Night Shift</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeployModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Deploy Responder</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Field Notes Logging -->
+    <div class="modal-backdrop" id="notes-modal">
+        <div class="modal" style="width: 500px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clipboard-list"></i> Field Assignment Notes</h3>
+                <button class="close-btn" onclick="closeNotesModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="patient-summary">
+                    <h4 id="notes-job-code">ASG-ALPHA</h4>
+                    <p id="notes-responder-name">Responder: Santhosh</p>
+                </div>
+                <div class="chart-ledger-container">
+                    <h5>Chronological Deployment Notes</h5>
+                    <div class="chart-log-box" id="notes-log-box" style="height: 150px; color: var(--color-warning);">
+                        <!-- Entries populated here -->
+                    </div>
+                </div>
+                
+                <hr style="border: 1px solid var(--border-color); margin: 10px 0;"/>
+                
+                <form id="notes-entry-form" onsubmit="submitNotesEntry(event)">
+                    <input type="hidden" id="notes-assignment-id">
+                    <h5>Add New Telemetry Update</h5>
+                    <div class="form-group">
+                        <label for="notes-details">Field Note Entry *</label>
+                        <input type="text" id="notes-details" required placeholder="e.g. Cleared roadway debris. Moving south.">
+                    </div>
+                    <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn btn-primary" style="width: auto; padding: 6px 16px; font-size: 0.8rem;">
+                            Append Field Note
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Modify Zone Metrics -->
+    <div class="modal-backdrop" id="zone-metrics-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-square-poll-vertical"></i> Update Affected Zone Metrics</h3>
+                <button class="close-btn" onclick="closeZoneMetricsModal()">&times;</button>
+            </div>
+            <form id="zone-metrics-form" onsubmit="submitZoneMetricsForm(event)">
+                <input type="hidden" id="metric-zone-id">
+                <div class="modal-body">
+                    <div class="settle-summary">
+                        <h4 id="metric-zone-name">Z-NORTH</h4>
+                        <p id="metric-zone-coords">Coordinates: 40.7060, -74.0080</p>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="met-casualties">Casualties (Injured/Sick) *</label>
+                            <input type="number" id="met-casualties" required min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="met-damage">Houses Damaged *</label>
+                            <input type="number" id="met-damage" required min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="met-lives">Lives Lost *</label>
+                            <input type="number" id="met-lives" required min="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="met-evacuations">Evacuation Requests *</label>
+                            <input type="number" id="met-evacuations" required min="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="met-risk">Infrastructure Risk Scale (1-10) *</label>
+                        <input type="number" id="met-risk" required min="1" max="10">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeZoneMetricsModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update Metrics</button>
                 </div>
             </form>
         </div>

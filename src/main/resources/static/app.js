@@ -6,6 +6,9 @@ let victims = [];
 let batches = [];
 let donations = [];
 let invoices = [];
+let responders = [];
+let assignments = [];
+let zones = [];
 let markers = [];
 let tempReportMarker = null;
 
@@ -16,6 +19,8 @@ const VICTIMS_API = '/api/victims';
 const BATCHES_API = '/api/logistics/batches';
 const SUPPLIES_API = '/api/logistics/supplies';
 const FINANCE_API = '/api/finance';
+const PERSONNEL_API = '/api/personnel';
+const ZONES_API = '/api/zones';
 
 // Initialize the Application
 document.addEventListener('DOMContentLoaded', () => {
@@ -81,13 +86,16 @@ function switchTab(tabId) {
 // Fetch all data from backend REST services
 async function fetchData() {
     try {
-        const [incidentsRes, sheltersRes, victimsRes, batchesRes, donationsRes, invoicesRes] = await Promise.all([
+        const [incidentsRes, sheltersRes, victimsRes, batchesRes, donationsRes, invoicesRes, respondersRes, assignmentsRes, zonesRes] = await Promise.all([
             fetch(INCIDENTS_API),
             fetch(SHELTERS_API),
             fetch(VICTIMS_API),
             fetch(BATCHES_API),
             fetch(FINANCE_API + '/donations'),
-            fetch(FINANCE_API + '/invoices')
+            fetch(FINANCE_API + '/invoices'),
+            fetch(PERSONNEL_API + '/responders'),
+            fetch(PERSONNEL_API + '/assignments'),
+            fetch(ZONES_API)
         ]);
 
         incidents = incidentsRes.ok ? await incidentsRes.json() : [];
@@ -96,6 +104,9 @@ async function fetchData() {
         batches = batchesRes.ok ? await batchesRes.json() : [];
         donations = donationsRes.ok ? await donationsRes.json() : [];
         invoices = invoicesRes.ok ? await invoicesRes.json() : [];
+        responders = respondersRes.ok ? await respondersRes.json() : [];
+        assignments = assignmentsRes.ok ? await assignmentsRes.json() : [];
+        zones = zonesRes.ok ? await zonesRes.json() : [];
 
         // Clear existing markers
         markers.forEach(marker => map.removeLayer(marker));
@@ -106,6 +117,8 @@ async function fetchData() {
         renderVictims();
         renderBatches();
         renderFinance();
+        renderAssignments();
+        renderZones();
         plotMapMarkers();
         updateMetrics();
 
@@ -934,4 +947,296 @@ function filterIncidents() {
             card.style.display = 'none';
         }
     });
+}
+
+// ----- NEW TAB RENDERERS & MODALS -----
+
+// Render Responder Assignments (Jobs)
+function renderAssignments() {
+    const body = document.getElementById('deployments-table-body');
+    body.innerHTML = '';
+
+    if (assignments.length === 0) {
+        body.innerHTML = '<tr><td colspan="7" class="loading-state">No active responder deployments logged.</td></tr>';
+        return;
+    }
+
+    assignments.forEach(asg => {
+        const isComp = asg.completed;
+        const statusClass = isComp ? 'success-badge' : 'warning';
+        const statusText = isComp ? 'Standing Down (Completed)' : 'ACTIVE DEPLOYMENT';
+        
+        let actionButtons = '';
+        if (!isComp) {
+            actionButtons = `
+                <button class="btn btn-primary btn-sm" style="display:inline-block; margin-right:4px;" onclick="toggleAssignmentStatus(${asg.id})">
+                    <i class="fa-solid fa-circle-check"></i> Complete
+                </button>
+            `;
+        }
+        
+        const notesLog = asg.fieldIncidentNotes || '[]';
+        
+        actionButtons += `
+            <button class="btn btn-secondary btn-sm" style="display:inline-block; margin-right:4px;" onclick="openNotesModal(${asg.id}, '${asg.assignmentId}', '${notesLog.replace(/'/g, "\\'").replace(/\n/g, "\\n")}')">
+                <i class="fa-solid fa-clipboard-list"></i> Shift Notes
+            </button>
+        `;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${asg.assignmentId}</strong></td>
+            <td><strong>${asg.fieldResponder.name}</strong> (${asg.fieldResponder.empId})</td>
+            <td><span class="badge success-badge">${asg.fieldResponder.tacticalSpecialty}</span></td>
+            <td>${asg.disasterIncident.title} (Scale ${asg.disasterIncident.severityScale})</td>
+            <td>${asg.operationalShift}</td>
+            <td><span class="badge ${statusClass}">${statusText}</span></td>
+            <td>${actionButtons}</td>
+        `;
+        body.appendChild(tr);
+    });
+}
+
+// Render Affected Zones Hub
+function renderZones() {
+    // 1. Render Glow Metrics Grid (aggregates statistics)
+    const glowContainer = document.getElementById('zones-glow-container');
+    glowContainer.innerHTML = '';
+
+    let totalCasualties = 0;
+    let totalDamage = 0;
+    let totalLives = 0;
+    let totalEvacuations = 0;
+    let maxRisk = 0;
+
+    zones.forEach(z => {
+        totalCasualties += z.casualtyCount;
+        totalDamage += z.housesDamaged;
+        totalLives += z.livesLost;
+        totalEvacuations += z.evacuationRequestCount;
+        if (z.infrastructureRiskScale > maxRisk) maxRisk = z.infrastructureRiskScale;
+    });
+
+    glowContainer.innerHTML = `
+        <div class="glow-card casualties">
+            <div class="val" id="glow-casualties-count">${totalCasualties}</div>
+            <div class="lbl">Total Casualties</div>
+        </div>
+        <div class="glow-card damage">
+            <div class="val" id="glow-damage-count">${totalDamage}</div>
+            <div class="lbl">Houses Damaged</div>
+        </div>
+        <div class="glow-card lives">
+            <div class="val" id="glow-lives-count">${totalLives}</div>
+            <div class="lbl">Lives Lost</div>
+        </div>
+        <div class="glow-card evacuations">
+            <div class="val" id="glow-evac-count">${totalEvacuations}</div>
+            <div class="lbl">Evac Requests</div>
+        </div>
+        <div class="glow-card risk">
+            <div class="val" id="glow-risk-scale">${maxRisk}/10</div>
+            <div class="lbl">Max Risk Scale</div>
+        </div>
+    `;
+
+    // 2. Render Zones Table
+    const body = document.getElementById('zones-table-body');
+    body.innerHTML = '';
+
+    if (zones.length === 0) {
+        body.innerHTML = '<tr><td colspan="10" class="loading-state">No affected zones logged in system.</td></tr>';
+        return;
+    }
+
+    zones.forEach(z => {
+        const incidentsCount = z.registeredIncidents ? z.registeredIncidents.length : 0;
+        const evacTag = z.evacuationRequired 
+            ? '<span class="badge danger"><i class="fa-solid fa-circle-exclamation"></i> EVACUATE</span>' 
+            : '<span class="badge success-badge"><i class="fa-solid fa-circle-check"></i> Monitor</span>';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><strong>${z.zoneId}</strong></td>
+            <td>${z.quadrantGeocode}</td>
+            <td>${evacTag}</td>
+            <td><strong style="color:var(--color-danger)">${z.casualtyCount}</strong></td>
+            <td><strong style="color:var(--color-warning)">${z.housesDamaged}</strong></td>
+            <td><strong style="color:#fff">${z.livesLost}</strong></td>
+            <td><strong style="color:var(--color-info)">${z.evacuationRequestCount}</strong></td>
+            <td><span class="badge success-badge">${z.infrastructureRiskScale}/10</span></td>
+            <td>${incidentsCount} tracking</td>
+            <td>
+                <button class="btn btn-primary btn-sm" onclick="openZoneMetricsModal(${z.id}, '${z.zoneId}', '${z.quadrantGeocode}', ${z.casualtyCount}, ${z.housesDamaged}, ${z.livesLost}, ${z.evacuationRequestCount}, ${z.infrastructureRiskScale})">
+                    <i class="fa-solid fa-file-pen"></i> Update Metrics
+                </button>
+            </td>
+        `;
+        body.appendChild(tr);
+    });
+}
+
+// ----- DEPLOY RESPONDER MODAL LOGIC -----
+
+function openDeployModal() {
+    document.getElementById('deploy-modal').classList.add('active');
+    
+    // Populate dropdown with available standby responders
+    const respSelect = document.getElementById('dep-responder');
+    respSelect.innerHTML = '<option value="">-- Choose Responder --</option>';
+    responders.forEach(r => {
+        if (r.operationalStatus === 'STANDBY') {
+            respSelect.innerHTML += `<option value="${r.id}">${r.name} (${r.tacticalSpecialty} - L${r.certificationLevel})</option>`;
+        }
+    });
+
+    // Populate dropdown with active incidents
+    const incSelect = document.getElementById('dep-incident');
+    incSelect.innerHTML = '<option value="">-- Choose Incident --</option>';
+    incidents.forEach(inc => {
+        if (inc.isActive) {
+            incSelect.innerHTML += `<option value="${inc.id}">${inc.title} (${inc.hazardType} - Scale ${inc.severityScale})</option>`;
+        }
+    });
+}
+
+function closeDeployModal() {
+    document.getElementById('deploy-modal').classList.remove('active');
+    document.getElementById('deploy-form').reset();
+}
+
+async function submitDeploymentForm(e) {
+    e.preventDefault();
+    const responderId = parseInt(document.getElementById('dep-responder').value);
+    const incidentId = parseInt(document.getElementById('dep-incident').value);
+    const shift = document.getElementById('dep-shift').value;
+
+    if (!responderId || !incidentId) {
+        alert('Please select a responder and an active incident.');
+        return;
+    }
+
+    try {
+        const res = await fetch(PERSONNEL_API + '/assignments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                operationalShift: shift,
+                fieldResponder: { id: responderId },
+                disasterIncident: { id: incidentId }
+            })
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+        }
+
+        closeDeployModal();
+        await fetchData();
+        alert('Field responder deployed successfully!');
+    } catch (err) {
+        alert('Deployment failed: ' + err.message);
+    }
+}
+
+// ----- SHIFT NOTES MODAL LOGIC -----
+
+function openNotesModal(assignmentId, jobCode, notes) {
+    document.getElementById('notes-modal').classList.add('active');
+    document.getElementById('notes-assignment-id').value = assignmentId;
+    document.getElementById('notes-job-code').innerText = jobCode;
+
+    const assignment = assignments.find(a => a.id === assignmentId);
+    if (assignment && assignment.fieldResponder) {
+        document.getElementById('notes-responder-name').innerText = `Responder: ${assignment.fieldResponder.name} (${assignment.fieldResponder.tacticalSpecialty})`;
+    }
+
+    const logBox = document.getElementById('notes-log-box');
+    logBox.innerText = notes && notes.trim() !== '[]' ? notes : 'No shift telemetry entries logged yet.';
+}
+
+function closeNotesModal() {
+    document.getElementById('notes-modal').classList.remove('active');
+    document.getElementById('notes-entry-form').reset();
+}
+
+async function submitNotesEntry(e) {
+    e.preventDefault();
+    const assignmentId = document.getElementById('notes-assignment-id').value;
+    const noteText = document.getElementById('notes-details').value;
+
+    try {
+        const res = await fetch(`${PERSONNEL_API}/assignments/${assignmentId}/notes?notes=${encodeURIComponent(noteText)}`, {
+            method: 'POST'
+        });
+        if (!res.ok) throw new Error();
+
+        const updated = await res.json();
+        
+        // Refresh notes box with updated logs
+        document.getElementById('notes-log-box').innerText = updated.fieldIncidentNotes;
+        document.getElementById('notes-details').value = '';
+        
+        await fetchData();
+    } catch (err) {
+        alert('Failed to append shift note telemetry.');
+    }
+}
+
+async function toggleAssignmentStatus(id) {
+    if (!confirm('Are you sure this responder deployment is completed? Operational status will return to STANDBY.')) return;
+    try {
+        const res = await fetch(`${PERSONNEL_API}/assignments/${id}/complete`, {
+            method: 'PUT'
+        });
+        if (!res.ok) throw new Error();
+        await fetchData();
+        alert('Assignment completed. Responder returned to standby.');
+    } catch (err) {
+        alert('Failed to update assignment status.');
+    }
+}
+
+// ----- ZONE METRICS MODAL LOGIC -----
+
+function openZoneMetricsModal(id, zoneId, geocode, casualties, damage, lives, evacuations, risk) {
+    document.getElementById('zone-metrics-modal').classList.add('active');
+    document.getElementById('metric-zone-id').value = id;
+    document.getElementById('metric-zone-name').innerText = zoneId;
+    document.getElementById('metric-zone-coords').innerText = `Quadrant Geocode: ${geocode}`;
+
+    document.getElementById('met-casualties').value = casualties;
+    document.getElementById('met-damage').value = damage;
+    document.getElementById('met-lives').value = lives;
+    document.getElementById('met-evacuations').value = evacuations;
+    document.getElementById('met-risk').value = risk;
+}
+
+function closeZoneMetricsModal() {
+    document.getElementById('zone-metrics-modal').classList.remove('active');
+    document.getElementById('zone-metrics-form').reset();
+}
+
+async function submitZoneMetricsForm(e) {
+    e.preventDefault();
+    const id = document.getElementById('metric-zone-id').value;
+    const casualties = parseInt(document.getElementById('met-casualties').value);
+    const damage = parseInt(document.getElementById('met-damage').value);
+    const lives = parseInt(document.getElementById('met-lives').value);
+    const evacuations = parseInt(document.getElementById('met-evacuations').value);
+    const risk = parseInt(document.getElementById('met-risk').value);
+
+    try {
+        const res = await fetch(`${ZONES_API}/${id}/metrics?casualties=${casualties}&damage=${damage}&lives=${lives}&evacuations=${evacuations}&risk=${risk}`, {
+            method: 'PUT'
+        });
+        if (!res.ok) throw new Error();
+
+        closeZoneMetricsModal();
+        await fetchData();
+        alert('Affected zone metrics updated successfully!');
+    } catch (err) {
+        alert('Failed to update affected zone metrics.');
+    }
 }
