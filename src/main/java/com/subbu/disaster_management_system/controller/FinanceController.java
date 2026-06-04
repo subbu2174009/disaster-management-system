@@ -48,31 +48,56 @@ public class FinanceController {
     @PostMapping("/invoices/{id}/settle")
     public ResponseEntity<?> settleInvoice(
             @PathVariable Long id, 
-            @RequestParam Long donationId) {
+            @RequestParam String paymentMethod) {
         
         Optional<AllocationInvoice> invoiceOpt = allocationInvoiceRepository.findById(id);
         if (invoiceOpt.isEmpty()) return ResponseEntity.notFound().build();
 
-        Optional<DonationPayment> donationOpt = donationPaymentRepository.findById(donationId);
-        if (donationOpt.isEmpty()) return ResponseEntity.badRequest().body("Donation transaction not found.");
-
         AllocationInvoice invoice = invoiceOpt.get();
-        DonationPayment donation = donationOpt.get();
+        if ("CLEARED".equalsIgnoreCase(invoice.getApprovalSignature())) {
+            return ResponseEntity.badRequest().body("Invoice is already cleared and settled.");
+        }
 
-        // Business Rule Handshake: check if donation amount is sufficient
-        if (donation.getClearFundsAmount() < invoice.getAggregatedOperationalCost()) {
+        List<DonationPayment> donations = donationPaymentRepository.findAll();
+        double totalTreasuryFunds = donations.stream().mapToDouble(DonationPayment::getClearFundsAmount).sum();
+        
+        if (totalTreasuryFunds < invoice.getAggregatedOperationalCost()) {
             return ResponseEntity.badRequest()
-                    .body("Donation amount ($" + donation.getClearFundsAmount() 
+                    .body("Treasury balance ($" + totalTreasuryFunds 
                           + ") is insufficient to clear the operational cost ($" 
                           + invoice.getAggregatedOperationalCost() + ") of Invoice " + invoice.getInvoiceId());
         }
 
-        // Deduct the operational cost from the donation payment clear funds
-        donation.setClearFundsAmount(donation.getClearFundsAmount() - invoice.getAggregatedOperationalCost());
-        donationPaymentRepository.save(donation);
+        // Deduct from the treasury pool
+        double costToDeduct = invoice.getAggregatedOperationalCost();
+        DonationPayment linkedDonation = null;
 
+        for (DonationPayment donation : donations) {
+            if (costToDeduct <= 0) break;
+            
+            double availableFunds = donation.getClearFundsAmount();
+            if (availableFunds > 0) {
+                if (linkedDonation == null) {
+                    linkedDonation = donation;
+                }
+                
+                if (availableFunds >= costToDeduct) {
+                    donation.setClearFundsAmount(availableFunds - costToDeduct);
+                    costToDeduct = 0;
+                } else {
+                    costToDeduct -= availableFunds;
+                    donation.setClearFundsAmount(0.0);
+                }
+                donationPaymentRepository.save(donation);
+            }
+        }
+
+        if (linkedDonation != null) {
+            invoice.setDonationPayment(linkedDonation);
+        }
+
+        invoice.setSettlementMethod(paymentMethod);
         invoice.setApprovalSignature("CLEARED");
-        invoice.setDonationPayment(donation);
         
         AllocationInvoice saved = allocationInvoiceRepository.save(invoice);
         return ResponseEntity.ok(saved);

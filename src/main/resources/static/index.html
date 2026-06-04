@@ -643,12 +643,15 @@
                         <p id="settle-invoice-cost">Operational Cost: $1250.00</p>
                     </div>
                     <div class="form-group">
-                        <label for="settle-donation-select">Select Funding Donation Transaction *</label>
-                        <select id="settle-donation-select" required>
-                            <!-- Available donations populated here -->
+                        <label for="settle-method-select">Select Settlement Payment Method *</label>
+                        <select id="settle-method-select" required>
+                            <option value="">-- Choose Payment Method --</option>
+                            <option value="SWIFT-WIRE">SWIFT-WIRE</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Bank Account">Bank Account</option>
                         </select>
                     </div>
-                    <p class="form-help-text text-warning"><i class="fa-solid fa-scale-balanced"></i> Financial Settlement Handshake: The selected donation transaction must contain funds equal to or exceeding the total operational cost of the invoice to settle.</p>
+                    <p class="form-help-text text-warning"><i class="fa-solid fa-scale-balanced"></i> Financial Settlement: The invoice operational cost will be automatically deducted from the treasury's available donation fund pool via the selected payment method.</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeSettleModal()">Cancel</button>

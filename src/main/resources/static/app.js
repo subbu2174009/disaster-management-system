@@ -601,14 +601,9 @@ function openSettleModal(invoiceId, code, cost) {
     document.getElementById('settle-invoice-code').innerText = code;
     document.getElementById('settle-invoice-cost').innerText = 'Operational Cost: $' + cost.toFixed(2);
 
-    // Populate dropdown with all available donations
-    const select = document.getElementById('settle-donation-select');
-    select.innerHTML = '<option value="">-- Choose Payment --</option>';
-
-    // Filter to donations that are reasonably large enough
-    donations.forEach(don => {
-        select.innerHTML += `<option value="${don.id}">${don.transactionalPaymentId} ($${don.clearFundsAmount.toFixed(2)}) via ${don.routingChannelApproach}</option>`;
-    });
+    // Reset the select input
+    const select = document.getElementById('settle-method-select');
+    if (select) select.value = '';
 }
 function closeSettleModal() {
     document.getElementById('settle-invoice-modal').classList.remove('active');
@@ -867,15 +862,15 @@ async function deleteManifestItem(batchId, itemId) {
 async function submitSettleForm(e) {
     e.preventDefault();
     const id = document.getElementById('settle-invoice-id').value;
-    const donId = document.getElementById('settle-donation-select').value;
+    const paymentMethod = document.getElementById('settle-method-select').value;
 
-    if (!donId) {
-        alert('Please select a valid funding transaction.');
+    if (!paymentMethod) {
+        alert('Please select a valid payment method.');
         return;
     }
 
     try {
-        const res = await fetch(`${FINANCE_API}/invoices/${id}/settle?donationId=${donId}`, {
+        const res = await fetch(`${FINANCE_API}/invoices/${id}/settle?paymentMethod=${encodeURIComponent(paymentMethod)}`, {
             method: 'POST'
         });
 
@@ -888,7 +883,7 @@ async function submitSettleForm(e) {
         await fetchData();
         alert('Invoice successfully cleared and settled via payment handshake!');
     } catch (err) {
-        alert('Settlement failed: ' + err.message);
+        alert(err.message || 'Failed to settle invoice.');
     }
 }
 
@@ -974,7 +969,7 @@ Cargo Batch Code  : ${batchCode}
 Source Node       : ${sourceNode}
 Target Zone       : ${inv.associatedTargetZoneId}
 Approval State    : ${inv.approvalSignature === 'CLEARED' ? 'ACCEPTED' : inv.approvalSignature}
-Settled Payment   : ${inv.donationPayment ? 'PAID / SETTLED via Payment ID: ' + inv.donationPayment.transactionalPaymentId + ' (' + inv.donationPayment.routingChannelApproach + ')' : 'UNPAID / PENDING HANDSHAKE'}
+Settled Payment   : ${inv.donationPayment ? 'PAID / SETTLED via Payment ID: ' + inv.donationPayment.transactionalPaymentId + ' (' + (inv.settlementMethod || 'N/A') + ')' : 'UNPAID / PENDING HANDSHAKE'}
 -----------------------------------------------------
 ITEMS BUNDLED IN CARGO MANIFEST:
 ${itemsText}

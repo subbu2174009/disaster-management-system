@@ -19,6 +19,8 @@ public class AllocationInvoice {
     private String associatedTargetZoneId;
     private double aggregatedOperationalCost;
     private String approvalSignature; // PENDING / SIGNED / CLEARED
+    private String settlementMethod;
+
 
     @OneToOne
     @JoinColumn(name = "batch_id")
